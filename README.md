@@ -139,6 +139,20 @@ env = create_env(cfg)
 See `configs/minigrid_example.yaml` and `configs/vizdoom_example.yaml`
 for example configuration files.
 
+### Unified training script
+
+For small scale experiments the repository now provides a single entry
+point ``train.py`` which accepts a YAML configuration and handles
+logging, evaluation GIFs and model checkpoints:
+
+```bash
+python train.py --config ./configs/minigrid_example.yaml --run-id demo
+```
+
+During training the script writes reward statistics and ``success_rate``
+to TensorBoard and periodically stores evaluation episodes as animated
+GIFs in ``videos/<run-id>/``.
+
 ## <a name="bench"></a> 🎯 Benchmarks
 
 #### ☝️ POPGym
