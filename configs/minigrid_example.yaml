@@ -1,0 +1,6 @@
+environment:
+  type: minigrid
+  params:
+    env_id: MiniGrid-Empty-8x8-v0
+    view_size: 5
+    tile_size: 32

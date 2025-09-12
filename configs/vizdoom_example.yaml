@@ -1,0 +1,7 @@
+environment:
+  type: vizdoom
+  params:
+    scenario: path/to/scenario.wad
+    config: path/to/config.cfg
+    frame_skip: 4
+    resolution: RES_160X120

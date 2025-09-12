@@ -114,8 +114,30 @@ model = SHM(input_size=dim, mem_size=16, output_size=32).to("cuda")
 y = model(x)
 ```
 
-Implementation details of the SHM module can be found in [shm.py](https://github.com/thaihungle/SHM/blob/main/shm.py). 
+Implementation details of the SHM module can be found in [shm.py](https://github.com/thaihungle/SHM/blob/main/shm.py).
 Just so you know, when we adapt to specific tasks, we can slightly modify the implementation to follow the common practice (e.g., add residual shortcut).
+
+### Environment wrappers
+
+For quick experimentation with partially observable tasks we expose a
+small set of environment wrappers in `environments/`.  They provide a
+common interface for different backends such as
+[MiniGrid](https://github.com/Farama-Foundation/minigrid) and
+[VizDoom](https://github.com/mwydmuch/ViZDoom).  Environments are
+created from a configuration dictionary:
+
+```python
+from environments import create_env
+
+cfg = {
+    "type": "minigrid",
+    "params": {"env_id": "MiniGrid-Empty-8x8-v0", "view_size": 5},
+}
+env = create_env(cfg)
+```
+
+See `configs/minigrid_example.yaml` and `configs/vizdoom_example.yaml`
+for example configuration files.
 
 ## <a name="bench"></a> 🎯 Benchmarks
 
