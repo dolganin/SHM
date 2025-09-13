@@ -137,7 +137,10 @@ env = create_env(cfg)
 ```
 
 See `configs/minigrid_example.yaml` and `configs/vizdoom_example.yaml`
-for example configuration files.
+for example configuration files.  They include common training
+hyperparameters such as discount factor, worker settings, recurrence
+options and learning-rate schedules, making it easy to tweak
+experiments.
 
 ### Unified training script
 

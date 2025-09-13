@@ -27,14 +27,19 @@ class PPOTrainer:
         self.envs = [create_env_from_config(config["environment"]) for _ in range(config.get("n_workers", 1))]
         obs_shape = self.envs[0].observation_space.shape
         self.action_space = self.envs[0].action_space
-        self.model = ActorCriticModel(obs_shape, self.action_space).to(device)
-        self.buffer = Buffer()
+
+        hidden_size = config.get("hidden_layer_size", 256)
+        self.recurrence = config.get("recurrence", {"layer_type": "gru", "hidden_state_size": hidden_size})
+        self.model = ActorCriticModel(obs_shape, self.action_space, hidden_size, self.recurrence).to(device)
+
+        gamma = config.get("gamma", 0.99)
+        lamda = config.get("lamda", 0.95)
+        self.buffer = Buffer(gamma=gamma, lam=lamda)
 
         # schedules
-        self.lr_schedule = config.get("lr_schedule", {"initial": 3e-4, "final": 3e-4, "max_decay_steps": config.get("updates", 1), "power": 1.0})
+        self.lr_schedule = config.get("learning_rate_schedule", {"initial": 3e-4, "final": 3e-4, "max_decay_steps": config.get("updates", 1), "power": 1.0})
         self.beta_schedule = config.get("beta_schedule", {"initial": 0.0, "final": 0.0, "max_decay_steps": config.get("updates", 1), "power": 1.0})
-        self.cr_schedule = config.get("cr_schedule", {"initial": 0.2, "final": 0.2, "max_decay_steps": config.get("updates", 1), "power": 1.0})
-        self.recurrence = {"layer_type": "gru"}
+        self.cr_schedule = config.get("clip_range_schedule", {"initial": 0.2, "final": 0.2, "max_decay_steps": config.get("updates", 1), "power": 1.0})
 
     # ------------------------------------------------------------------
     def run_training(self) -> None:
@@ -102,7 +107,7 @@ class PPOTrainer:
             ep_reward = 0.0
             ep_len = 0
             success = 0.0
-            for _ in range(self.config.get("steps_per_update", 32)):
+            for _ in range(self.config.get("worker_steps", 32)):
                 with torch.no_grad():
                     obs_t = torch.as_tensor(obs).unsqueeze(0)
                     pol, value, _ = self.model(obs_t, None, self.device)
@@ -124,12 +129,16 @@ class PPOTrainer:
 
     # ------------------------------------------------------------------
     def _train_epochs(self, lr: float, clip_range: float, beta: float) -> np.ndarray:
-        """Dummy training step returning placeholder statistics."""
-        pi_loss = np.random.random()
-        v_loss = np.random.random()
-        loss = pi_loss + v_loss
-        entropy = np.random.random()
-        return np.array([[pi_loss, v_loss, loss, entropy]])
+        """Dummy training step returning placeholder statistics for each epoch."""
+        epochs = self.config.get("epochs", 1)
+        stats = []
+        for _ in range(epochs):
+            pi_loss = np.random.random()
+            v_loss = np.random.random()
+            loss = pi_loss + v_loss
+            entropy = np.random.random()
+            stats.append([pi_loss, v_loss, loss, entropy])
+        return np.array(stats)
 
     # ------------------------------------------------------------------
     def _process_episode_info(self, infos: deque) -> Dict[str, float]:
