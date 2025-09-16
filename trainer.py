@@ -1,7 +1,8 @@
-"""Simplified PPO trainer with success-rate logging and GIF recording."""
+"""Simplified PPO trainer with success-rate logging and GIF recording (SHM paths)."""
 from __future__ import annotations
 
 import os
+import time
 from collections import deque
 from typing import Any, Dict, List
 
@@ -21,25 +22,49 @@ class PPOTrainer:
         self.device = device
         self.run_id = run_id
 
-        self.writer = SummaryWriter(os.path.join("runs", run_id))
-        self.video_dir = os.path.join("videos", run_id)
+        # --- SHM paths for logs and videos ---
+        base_log_dir = "../logs/shm/"
+        base_video_dir = "../logs/videos_shm"
+        os.makedirs(base_log_dir, exist_ok=True)
+        os.makedirs(base_video_dir, exist_ok=True)
 
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        log_path = os.path.join(base_log_dir, run_id, timestamp)
+        video_path = os.path.join(base_video_dir, run_id)
+        os.makedirs(log_path, exist_ok=True)
+        os.makedirs(video_path, exist_ok=True)
+
+        self.writer = SummaryWriter(log_path)
+        self.video_dir = video_path
+
+        # --- environments ---
         self.envs = [create_env_from_config(config["environment"]) for _ in range(config.get("n_workers", 1))]
         obs_shape = self.envs[0].observation_space.shape
         self.action_space = self.envs[0].action_space
 
+        # --- model ---
         hidden_size = config.get("hidden_layer_size", 256)
         self.recurrence = config.get("recurrence", {"layer_type": "gru", "hidden_state_size": hidden_size})
         self.model = ActorCriticModel(obs_shape, self.action_space, hidden_size, self.recurrence).to(device)
 
+        # --- buffer ---
         gamma = config.get("gamma", 0.99)
         lamda = config.get("lamda", 0.95)
         self.buffer = Buffer(gamma=gamma, lam=lamda)
 
-        # schedules
-        self.lr_schedule = config.get("learning_rate_schedule", {"initial": 3e-4, "final": 3e-4, "max_decay_steps": config.get("updates", 1), "power": 1.0})
-        self.beta_schedule = config.get("beta_schedule", {"initial": 0.0, "final": 0.0, "max_decay_steps": config.get("updates", 1), "power": 1.0})
-        self.cr_schedule = config.get("clip_range_schedule", {"initial": 0.2, "final": 0.2, "max_decay_steps": config.get("updates", 1), "power": 1.0})
+        # --- schedules ---
+        self.lr_schedule = config.get(
+            "learning_rate_schedule",
+            {"initial": 3e-4, "final": 3e-4, "max_decay_steps": config.get("updates", 1), "power": 1.0},
+        )
+        self.beta_schedule = config.get(
+            "beta_schedule",
+            {"initial": 0.0, "final": 0.0, "max_decay_steps": config.get("updates", 1), "power": 1.0},
+        )
+        self.cr_schedule = config.get(
+            "clip_range_schedule",
+            {"initial": 0.2, "final": 0.2, "max_decay_steps": config.get("updates", 1), "power": 1.0},
+        )
 
     # ------------------------------------------------------------------
     def run_training(self) -> None:
@@ -48,9 +73,18 @@ class PPOTrainer:
         episode_infos = deque(maxlen=100)
 
         for update in range(self.config["updates"]):
-            learning_rate = polynomial_decay(self.lr_schedule["initial"], self.lr_schedule["final"], self.lr_schedule["max_decay_steps"], self.lr_schedule["power"], update)
-            beta = polynomial_decay(self.beta_schedule["initial"], self.beta_schedule["final"], self.beta_schedule["max_decay_steps"], self.beta_schedule["power"], update)
-            clip_range = polynomial_decay(self.cr_schedule["initial"], self.cr_schedule["final"], self.cr_schedule["max_decay_steps"], self.cr_schedule["power"], update)
+            learning_rate = polynomial_decay(
+                self.lr_schedule["initial"], self.lr_schedule["final"],
+                self.lr_schedule["max_decay_steps"], self.lr_schedule["power"], update
+            )
+            beta = polynomial_decay(
+                self.beta_schedule["initial"], self.beta_schedule["final"],
+                self.beta_schedule["max_decay_steps"], self.beta_schedule["power"], update
+            )
+            clip_range = polynomial_decay(
+                self.cr_schedule["initial"], self.cr_schedule["final"],
+                self.cr_schedule["max_decay_steps"], self.cr_schedule["power"], update
+            )
 
             sampled_episode_info = self._sample_training_data()
             self.buffer.prepare_batch_dict()

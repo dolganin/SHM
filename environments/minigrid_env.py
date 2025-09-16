@@ -51,5 +51,9 @@ class MinigridEnv:
         obs, reward, terminated, truncated, info = self._env.step(action)
         return obs.astype(np.float32), reward, terminated, truncated, info
 
+    def render(self) -> np.ndarray:
+        """Render the current environment state as an RGB image."""
+        return self._env.render()
+
     def close(self) -> None:
         self._env.close()
